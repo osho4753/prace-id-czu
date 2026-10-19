@@ -10,6 +10,8 @@ export const useMapUi = create<{
   target: LatLng | null;
   hint: boolean;
   demoOpen: boolean;
+  /** trip bottom sheet swiped down */
+  sheetDown: boolean;
   setMap: (m: L.Map) => void;
   setTarget: (t: LatLng | null) => void;
   setHint: (v: boolean) => void;
@@ -18,6 +20,7 @@ export const useMapUi = create<{
   target: null,
   hint: false,
   demoOpen: false,
+  sheetDown: false,
   setMap: (map) => set({ map }),
   setTarget: (target) => set({ target }),
   setHint: (hint) => set({ hint }),

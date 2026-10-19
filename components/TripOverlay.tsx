@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Menu, RotateCw, Plus, Minus, LocateFixed, Fuel, Search, Phone, TriangleAlert, Check, X, ArrowRight, ChevronRight, CircleParking } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Menu, ChevronUp, RotateCw, Plus, Minus, LocateFixed, Fuel, Search, Phone, TriangleAlert, Check, X, ArrowRight, ChevronRight, CircleParking } from "lucide-react";
 import { Btn, Chip, RoundBtn, Sheet, Modal, toast, notInPrototype } from "./ui";
 import { CarSide } from "./CarArt";
 import SupportSheet from "./SupportSheet";
@@ -16,7 +16,7 @@ import { nearestZonePoint } from "@/lib/zone";
 
 export default function TripOverlay() {
   const { trip, scenarios, set } = useApp();
-  const { map, target, setTarget, hint, setHint } = useMapUi();
+  const { map, target, setTarget, hint, setHint, sheetDown } = useMapUi();
   const [sos, setSos] = useState(false);
   const [refuel, setRefuel] = useState(false);
   const [rules, setRules] = useState(false);
@@ -28,6 +28,11 @@ export default function TripOverlay() {
   const stats = trip ? tripStats(trip, scenarios) : null;
   const posKey = stats ? stats.pos.join(",") : "";
   const inZone = stats?.inZone ?? true;
+
+  // every trip starts with the panel expanded
+  useEffect(() => {
+    useMapUi.setState({ sheetDown: false });
+  }, []);
 
   // keep the moving car in view
   useEffect(() => {
@@ -94,7 +99,8 @@ export default function TripOverlay() {
       </div>
 
       {/* ---- right column ---- */}
-      <div className="absolute top-[150px] right-4 bottom-[330px] z-[500] flex flex-col items-center justify-between">
+      <div className={`absolute top-[150px] right-4 z-[500] transition-[bottom] duration-300 ${sheetDown ? "bottom-[110px]" : "bottom-[330px]"}`}>
+      <div className="flex h-full flex-col items-center justify-between">
         <div className="flex flex-col items-center gap-3">
           <RoundBtn label="Menu" onClick={() => setMenu(true)}>
             <Menu size={22} />
@@ -128,6 +134,7 @@ export default function TripOverlay() {
           <LocateFixed size={22} />
         </RoundBtn>
       </div>
+      </div>
 
       {/* ---- left column: SOS, fuel, search ---- */}
       <div className="absolute top-[260px] left-4 z-[500] flex flex-col items-center gap-3">
@@ -150,51 +157,54 @@ export default function TripOverlay() {
         </RoundBtn>
       </div>
 
-      {/* ---- bottom sheet ---- */}
-      <div className="absolute inset-x-0 bottom-0 z-[600] rounded-t-[28px] bg-white px-5 pt-3 pb-[max(14px,env(safe-area-inset-bottom))] shadow-[var(--shadow-sheet)]">
-        <CarSide model={car.model} className="mx-auto -mt-[62px] h-[78px] w-44" />
-        <div className="mx-auto -mt-1 mb-2 h-1.5 w-10 rounded-full bg-gray-300" />
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-[19px] font-bold">{MODELS[car.model].name.replace(" Hybrid", "")}</h2>
-          <span className="rounded-lg bg-gray-100 px-2.5 py-1 font-mono text-[16px] font-bold">{car.spz}</span>
-        </div>
-        <div className="mt-2 flex items-center gap-2 text-[14px]">
-          <div className="text-[17px] leading-tight font-extrabold">
-            {range}
-            <br />
-            km
+      {/* ---- bottom sheet (swipe down to see the map, swipe up to bring it back) ---- */}
+      <TripSheet
+        collapsed={sheetDown}
+        onCollapsed={(v) => useMapUi.setState({ sheetDown: v })}
+        header={
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-[19px] font-bold">{MODELS[car.model].name.replace(" Hybrid", "")}</h2>
+            <span className="rounded-lg bg-gray-100 px-2.5 py-1 font-mono text-[16px] font-bold">{car.spz}</span>
           </div>
-          <ArrowRight size={18} className="shrink-0" />
-          <Fuel size={26} className="shrink-0" />
-          <span className="text-muted">{tripAddress(trip, scenarios)}</span>
-        </div>
-        <div className="mt-3 flex justify-center gap-2">
-          <Chip onClick={() => setRefuel(true)}>
-            NATANKOVAT
-          </Chip>
-          <Chip onClick={() => setRules(true)}>
-            PRAVIDLA
-          </Chip>
-          <Chip onClick={() => setReport(true)}>
-            <TriangleAlert size={16} className="text-amber-600" /> NAHLÁSIT
-          </Chip>
-        </div>
-        <Btn
-          variant="outline"
-          size="lg"
-          className="mt-3 w-full"
-         
-          onClick={() => {
-            set({ trip: { ...trip, parking: !trip.parking } });
-            toast(trip.parking ? "Jízda pokračuje – vůz je odemčený" : "Parkovací režim zapnut – vůz je zamčený");
-          }}
-        >
-          {trip.parking ? "Pokračovat v jízdě" : "Přepnout do parkování"}
-        </Btn>
-        <Btn size="lg" className="mt-2.5 w-full" onClick={() => set({ phase: "ending" })}>
-          Ukončit pronájem
-        </Btn>
-      </div>
+        }
+        car={<CarSide model={car.model} className="mx-auto -mt-[62px] h-[78px] w-44" />}
+      >
+          <div className="mt-2 flex items-center gap-2 text-[14px]">
+            <div className="text-[17px] leading-tight font-extrabold">
+              {range}
+              <br />
+              km
+            </div>
+            <ArrowRight size={18} className="shrink-0" />
+            <Fuel size={26} className="shrink-0" />
+            <span className="text-muted">{tripAddress(trip, scenarios)}</span>
+          </div>
+          <div className="mt-3 flex justify-center gap-2">
+            <Chip onClick={() => setRefuel(true)}>
+              NATANKOVAT
+            </Chip>
+            <Chip onClick={() => setRules(true)}>
+              PRAVIDLA
+            </Chip>
+            <Chip onClick={() => setReport(true)}>
+              <TriangleAlert size={16} className="text-amber-600" /> NAHLÁSIT
+            </Chip>
+          </div>
+          <Btn
+            variant="outline"
+            size="lg"
+            className="mt-3 w-full"
+            onClick={() => {
+              set({ trip: { ...trip, parking: !trip.parking } });
+              toast(trip.parking ? "Jízda pokračuje – vůz je odemčený" : "Parkovací režim zapnut – vůz je zamčený");
+            }}
+          >
+            {trip.parking ? "Pokračovat v jízdě" : "Přepnout do parkování"}
+          </Btn>
+          <Btn size="lg" className="mt-2.5 w-full" onClick={() => set({ phase: "ending" })}>
+            Ukončit pronájem
+          </Btn>
+      </TripSheet>
 
       <SupportSheet open={sos} onClose={() => setSos(false)} sos />
       {refuel && <RefuelScreen onClose={() => setRefuel(false)} />}
@@ -280,5 +290,103 @@ function TripMenu({ open, onClose, onRules, onHelp, onSupport }: { open: boolean
         ))}
       </div>
     </Sheet>
+  );
+}
+
+function TripSheet({
+  collapsed,
+  onCollapsed,
+  header,
+  car,
+  children,
+}: {
+  collapsed: boolean;
+  onCollapsed: (v: boolean) => void;
+  header: React.ReactNode;
+  car: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const headRef = useRef<HTMLDivElement>(null);
+  const [maxShift, setMaxShift] = useState(220);
+  const [drag, setDrag] = useState<number | null>(null); // current translateY while dragging
+  const start = useRef<{ y: number; shift: number; moved: boolean } | null>(null);
+
+  // how far the sheet has to move so that only the header row stays visible
+  useLayoutEffect(() => {
+    const measure = () => {
+      const sheet = sheetRef.current;
+      const head = headRef.current;
+      if (!sheet || !head) return;
+      setMaxShift(Math.max(0, sheet.offsetHeight - (head.offsetTop + head.offsetHeight + 14)));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
+  const restShift = collapsed ? maxShift : 0;
+  const shift = drag ?? restShift;
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    start.current = { y: e.clientY, shift: restShift, moved: false };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    const st = start.current;
+    if (!st) return;
+    const dy = e.clientY - st.y;
+    if (Math.abs(dy) > 6) st.moved = true;
+    if (st.moved) setDrag(Math.min(maxShift, Math.max(0, st.shift + dy)));
+  };
+  const onPointerUp = (e: React.PointerEvent) => {
+    const st = start.current;
+    start.current = null;
+    if (!st) return;
+    const dy = e.clientY - st.y;
+    setDrag(null);
+    if (!st.moved) onCollapsed(!collapsed); // tap on the handle toggles
+    else if (dy > 40) onCollapsed(true);
+    else if (dy < -40) onCollapsed(false);
+  };
+
+  return (
+    <div
+      ref={sheetRef}
+      className={`absolute inset-x-0 bottom-0 z-[600] rounded-t-[28px] bg-white px-5 pt-3 pb-[max(14px,env(safe-area-inset-bottom))] shadow-[var(--shadow-sheet)] ${
+        drag === null ? "transition-transform duration-300 ease-out" : ""
+      }`}
+      style={{ transform: `translateY(${shift}px)` }}
+    >
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={!collapsed}
+        aria-label={collapsed ? "Rozbalit panel" : "Sbalit panel"}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={() => {
+          start.current = null;
+          setDrag(null);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onCollapsed(!collapsed);
+          }
+        }}
+        className="-mx-5 -mt-3 cursor-grab touch-none px-5 pt-3 select-none active:cursor-grabbing"
+      >
+        {car}
+        <div className="mx-auto -mt-1 mb-2 flex h-4 items-center justify-center">
+          {collapsed ? <ChevronUp size={22} className="text-gray-400" /> : <span className="h-1.5 w-10 rounded-full bg-gray-300" />}
+        </div>
+        <div ref={headRef}>{header}</div>
+      </div>
+      <div aria-hidden={collapsed} className={collapsed && drag === null ? "invisible" : ""}>
+        {children}
+      </div>
+    </div>
   );
 }

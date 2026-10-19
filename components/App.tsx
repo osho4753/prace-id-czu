@@ -27,7 +27,7 @@ const MapView = dynamic(() => import("./MapView"), { ssr: false, loading: () => 
 export default function App() {
   const s = useApp();
   const { phase, tab, onboarded, tariffFor, trip, scenarios } = s;
-  const { target, setMap } = useMapUi();
+  const { target, setMap, sheetDown } = useMapUi();
 
   // trip simulation ticker
   useEffect(() => {
@@ -67,7 +67,7 @@ export default function App() {
     <div className="relative h-full w-full overflow-hidden">
       <div
         className="absolute inset-0 isolate"
-        style={{ "--map-bottom": `${phase === "browse" ? 68 : phase === "reserved" ? 345 : phase === "trip" ? 318 : 0}px` } as React.CSSProperties}
+        style={{ "--map-bottom": `${phase === "browse" ? 68 : phase === "reserved" ? 345 : phase === "trip" ? (sheetDown ? 96 : 318) : 0}px` } as React.CSSProperties}
       >
         <MapView
           cars={mapCars}
